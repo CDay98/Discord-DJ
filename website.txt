@@ -1,0 +1,6 @@
+<body style="background-color:#121212;">
+<h3><center style='color:#149414;'>CDay's Discord Music Bot</h3></center>
+<a href="https://uptimerobot.com/dashboard#mainDashboard" target = "_blank"><center>Uptime</a></center>
+<h2 style='color:#149414'>Tasks:</h2>
+<h3 style='color:#149414'>Figure out how to return HTML to the flask efficiently</h3>
+<h2 style='color:#149414'>Requests:</h2> <p style='color:white;'>

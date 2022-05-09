@@ -453,8 +453,6 @@ class Commands(commands.Cog):
         ctx.voice_state.songs.remove(index - 1)
         await ctx.message.add_reaction('✅')
 
-
-
     @commands.command(name='play')
     async def _play(self, ctx: commands.Context, *, search: str):
         """Plays a song.
@@ -502,7 +500,7 @@ class Commands(commands.Cog):
         json_data = json.loads(response.text)
         quote = json_data[0]['q'] + " -" + json_data[0]['a']
         return (quote)
-    
+
     # Random custom commands ----------------------------------------------
     @commands.command(name='sad')
     async def __sad(self, ctx: commands.Context):
@@ -514,7 +512,9 @@ class Commands(commands.Cog):
     async def __jack(self, ctx: commands.Context):
         """His legal name."""
         await ctx.message.add_reaction(':stinky:681811110936051743')
-        await ctx.send('<:stinky:681811110936051743><:stinky:681811110936051743><:stinky:681811110936051743>')
+        await ctx.send(
+            '<:stinky:681811110936051743><:stinky:681811110936051743><:stinky:681811110936051743>'
+        )
 
     @commands.command(name='sam')
     async def _sam(
@@ -522,7 +522,6 @@ class Commands(commands.Cog):
             ctx: commands.Context,
             *,
             search: str = 'https://www.youtube.com/watch?v=W5d4SJv2d6M'):
-
         """Don't fall for it."""
         if not ctx.voice_state.voice:
             await ctx.invoke(self._join)
@@ -566,53 +565,76 @@ class Commands(commands.Cog):
     @commands.command(name='flip')
     async def __flip(self, ctx: commands.Context):
         """Flips a coin."""
-        flipNum = random.randint(1,2)
+        flipNum = random.randint(1, 2)
         if flipNum == 1:
-          await ctx.send('You flipped Heads!')
+            await ctx.send('You flipped Heads!')
         else:
-          await ctx.send('You flipped Tails!')
-    
-    # Dice
+            await ctx.send('You flipped Tails!')
+
+    @commands.command(name='loser')
+    async def _loser(
+            self,
+            ctx: commands.Context,
+            *,
+            search: str = 'https://www.youtube.com/watch?v=x4fKpn7NRdM'):
+        """Don't fall for it."""
+        if not ctx.voice_state.voice:
+            await ctx.invoke(self._join)
+
+        async with ctx.typing():
+            try:
+                source = await YTDLSource.create_source(ctx,
+                                                        search,
+                                                        loop=self.bot.loop)
+            except YTDLError as e:
+                await ctx.send(
+                    'An error occurred while processing this request: {}'.
+                    format(str(e)))
+            else:
+                song = Song(source)
+
+                await ctx.voice_state.songs.put(song)
+                await ctx.send("Get rolled you fucking loser.")
+
     @commands.command(name='d4')
     async def __d4(self, ctx: commands.Context):
         """Rolls number 1-4."""
-        d4Num = random.randint(1,4)
+        d4Num = random.randint(1, 4)
         await ctx.send("You rolled a {}!".format(d4Num))
-    
+
     @commands.command(name='d6')
     async def __d6(self, ctx: commands.Context):
         """Rolls number 1-6."""
-        d6Num = random.randint(1,6)
+        d6Num = random.randint(1, 6)
         await ctx.send("You rolled a {}!".format(d6Num))
 
     @commands.command(name='d8')
     async def __d8(self, ctx: commands.Context):
         """Rolls number 1-8."""
-        d8Num = random.randint(1,8)
+        d8Num = random.randint(1, 8)
         await ctx.send("You rolled a {}!".format(d8Num))
 
     @commands.command(name='d10')
     async def __d10(self, ctx: commands.Context):
         """Rolls number 1-10."""
-        d10Num = random.randint(1,10)
+        d10Num = random.randint(1, 10)
         await ctx.send("You rolled a {}!".format(d10Num))
-    
+
     @commands.command(name='d20')
     async def __d20(self, ctx: commands.Context):
         """Rolls number 1-20."""
-        d20Num = random.randint(1,20)
+        d20Num = random.randint(1, 20)
         await ctx.send("You rolled a {}!".format(d20Num))
 
     @commands.command(name='request')
-    async def __request(self,ctx,*,arg):
+    async def __request(self, ctx, *, arg):
         """Request a feature"""
         auth = ctx.author
         with open('requests.txt', 'a') as f:
-          f.write(f"{auth}: {arg}\n")
+            f.write(f"{auth}: {arg}\n")
         await ctx.send("Your request has been documented.")
 
     #End of random custom Commands class --------------------------------------
-
 
 
 bot = commands.Bot(command_prefix='.', intents=discord.Intents.all())
@@ -630,5 +652,3 @@ async def on_ready():
 
 keep_alive()
 bot.run(os.getenv('TOKEN'))
-
-token = os.environ.get('TOKEN')

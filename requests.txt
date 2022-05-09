@@ -1,6 +1,3 @@
 ivandinger#8068: test request
-JackyP#2217:
-CDay#6178: asdasdas
-Dr. Fritos#5688: money
 ivandinger#8068: : period command for bots forever
 Dr. Fritos#5688: ticket to Michigan

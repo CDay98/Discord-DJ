@@ -7,12 +7,12 @@ app = Flask('')
 @app.route('/')
 def home():
   myString = ''
-  with open('website.txt') as g:
+  with open('Logs/website.txt') as g:
     startup_lines = g.readlines()
     for i in startup_lines:
       myString += f"{i}"
   myString += "<p style='color:#149414'>"
-  with open('requests.txt') as f:
+  with open('Logs/requests.txt') as f:
     lines = f.readlines()
     for line in lines:
       myString += f"- {line} <br>"

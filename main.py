@@ -4,15 +4,13 @@ import itertools
 import math
 import random
 import os
-import requests
 import json
 from collections import Counter
-from user_data import get_movies, get_songs, set_songs, set_movies, profile_embed, read_json, write_json
+from user_data import get_movies, get_songs, set_songs, set_movies
+from user_data import profile_embed, read_json, write_json
 
 import discord
-from discord.ext.commands import has_permissions
 import youtube_dl
-from keep_alive import keep_alive
 from async_timeout import timeout
 from discord.ext import commands
 
@@ -115,9 +113,11 @@ class YTDLSource(discord.PCMVolumeTransformer):
 						if process_info is None:
 								raise YTDLError(
 										'Couldn\'t find anything that matches `{}`'.format(search))
-				
+
 				webpage_url = process_info['webpage_url']
-				partial = functools.partial(cls.ytdl.extract_info, webpage_url,download=False)
+				partial = functools.partial(cls.ytdl.extract_info,
+																		webpage_url,
+																		download=False)
 				processed_info = await loop.run_in_executor(None, partial)
 
 				if processed_info is None:
@@ -185,10 +185,13 @@ class Song:
 
 				return embed
 
+
 class SongQueue(asyncio.Queue):
 		def __getitem__(self, item):
 				if isinstance(item, slice):
-						return list(itertools.islice(self._queue, item.start, item.stop, item.step))
+						return list(
+								itertools.islice(self._queue, item.start, item.stop,
+																 item.step))
 				else:
 						return self._queue[item]
 
@@ -251,24 +254,25 @@ class VoiceState:
 		async def audio_player_task(self):
 				while True:
 						self.next.clear()
-						self.now = None
 
-						if self.loop == False:
+						if not self.loop:
 								# Try to get the next song within 3 minutes.
 								# If no song will be added to the queue in time,
 								# the player will disconnect due to performance
 								# reasons.
 								try:
-										async with timeout(1200):  # 3 minutes
+										async with timeout(1200):
 												self.current = await self.songs.get()
 								except asyncio.TimeoutError:
 										self.bot.loop.create_task(self.stop())
 										self.exists = False
 										return
-								
-								self.current.source.volume = self._volume
-								self.voice.play(self.current.source, after=self.play_next_song)
-								await self.current.source.channel.send(embed=self.current.create_embed())
+
+						self.current.source.volume = self._volume
+						self.voice.play(self.current.source, after=self.play_next_song)
+						await self.current.source.channel.send(embed=self.current.create_embed())
+
+						await self.next.wait()
 
 		def play_next_song(self, error=None):
 				if error:
@@ -309,30 +313,34 @@ class Commands(commands.Cog):
 
 		def cog_check(self, ctx: commands.Context):
 				if not ctx.guild:
-						raise commands.NoPrivateMessage(
-								'This command can\'t be used in DM channels.')
+						raise commands.NoPrivateMessage('This command can\'t be used in DM channels.')
 
 				return True
 
 		async def cog_before_invoke(self, ctx: commands.Context):
 				ctx.voice_state = self.get_voice_state(ctx)
 
-		async def cog_command_error(self, ctx: commands.Context,
-																error: commands.CommandError):
+		async def cog_command_error(self, ctx: commands.Context, error: commands.CommandError):
 				await ctx.send('An error occurred: {}'.format(str(error)))
 
-		#@commands.command(name='volume')
-		#async def _volume(self, ctx: commands.Context, *, volume: int):
-				#"""Sets the volume of the player."""
+		def add_to_playlist(self, ctx, url):
+				filename = 'Logs/playlist.json'
+				with open(filename) as f:
+						data = json.load(f)
+				if len(data) >= 49:
+						return 'Playlist Limit Reached, Please remove a song to add another'
+				else:
+						ydl = youtube_dl.YoutubeDL({
+								'outtmpl': '%(id)s.%(ext)s',
+								'noplaylist': True
+						})
+						with ydl:
+								result = ydl.extract_info(url, download=False)
 
-				#if not ctx.voice_state.is_playing:
-						#return await ctx.send('Nothing being played at the moment.')
-
-				#if 0 > volume > 100:
-						#return await ctx.send('Volume must be between 0 and 100')
-
-				#ctx.voice_state.source.volume = volume / 100
-				#await ctx.send('Volume of the player set to {}%'.format(volume))
+						video = result
+						data = {url: video['title']}
+						write_json(data, filename)
+						return 'Your song has been added!'
 
 		@commands.command(name='join', invoke_without_subcommand=True)
 		async def _join(self, ctx: commands.Context):
@@ -468,7 +476,7 @@ class Commands(commands.Cog):
 
 		@commands.command(name='play')
 		async def _play(self, ctx: commands.Context, *, search: str):
-				"""Plays a song or the community playlist with \'.play playlist\'
+				"""Plays a song'
 
 			If there are songs in the queue, this will be queued until the
 			other songs finished playing.
@@ -602,34 +610,9 @@ class Commands(commands.Cog):
 								songs = ['Not Set']
 						await ctx.send(embed=profile_embed(username, songs, movies))
 
-		@commands.command(name='playlist_add')
-		@has_permissions(change_nickname=True)
-		async def _playlistadd(self, ctx: commands.Context, url):
-				""".playlist_add (URL)"""
-
-				filename = 'Logs/playlist.json'
-				with open(filename) as f:
-						data = json.load(f)
-				if len(data) >= 49:
-						await ctx.send(
-								'Playlist Limit Reached, Please remove a song to add another')
-				else:
-						async with ctx.typing():
-								ydl = youtube_dl.YoutubeDL({
-										'outtmpl': '%(id)s.%(ext)s',
-										'noplaylist': True
-								})
-						with ydl:
-								result = ydl.extract_info(url, download=False)
-
-						video = result
-						data = {url: video['title']}
-						write_json(data, filename)
-						await ctx.send('Your song has been added!')
-
 		@commands.command(name='playlist_remove')
 		async def _playlistremove(self, ctx: commands.Context, url):
-				""".playlist_add (URL)"""
+				""".playlist_remove (URL)"""
 
 				filename = 'Logs/playlist.json'
 				with open(filename, 'r') as f:
@@ -640,8 +623,19 @@ class Commands(commands.Cog):
 						json.dump(data, f)
 
 		@commands.command(name='playlist')
-		async def _playlist(self, ctx: commands.Context):
-				"View the current songs in the Community Playlist."
+		async def _playlist(self, ctx: commands.Context, arg=None, url=None):
+				"View or add songs to the Community Playlist."
+				if arg:
+						arg = arg.lower()
+				if arg == "add" and url:
+						async with ctx.typing():
+								response = self.add_to_playlist(ctx, url)
+						await ctx.send(response)
+						return
+				elif arg == "add" and not url:
+						await ctx.send('Please add a URL.')
+						return
+
 				data = read_json('Logs/playlist.json')
 				pages = []
 				page_length = 12
@@ -724,41 +718,6 @@ class Commands(commands.Cog):
 														math.ceil(number / page_length), num_pages))
 						await ctx.send(embed=embed)
 
-		@_join.before_invoke
-		@_play.before_invoke
-		async def ensure_voice_state(self, ctx: commands.Context):
-				if not ctx.author.voice or not ctx.author.voice.channel:
-						raise commands.CommandError(
-								'You are not connected to any voice channel.')
-
-				if ctx.voice_client:
-						if ctx.voice_client.channel != ctx.author.voice.channel:
-								raise commands.CommandError(
-										'Bot is already in a voice channel.')
-
-# Random custom commands ----------------------------------------------
-# Insirational Quotes API response
-
-		def get_quote():
-				response = requests.get("https://zenquotes.io/api/random")
-				json_data = json.loads(response.text)
-				quote = json_data[0]['q'] + " -" + json_data[0]['a']
-				return (quote)
-
-		@commands.command(name='sad')
-		async def __sad(self, ctx: commands.Context):
-				"""Gives inspirational quote."""
-				quote = Commands.get_quote()
-				await ctx.send(quote)
-
-		@commands.command(name='jack')
-		async def __jack(self, ctx: commands.Context):
-				"""Monkey."""
-				await ctx.message.add_reaction(':stinky:681811110936051743')
-				await ctx.send(
-						'<:stinky:681811110936051743><:stinky:681811110936051743><:stinky:681811110936051743>'
-				)
-
 		@commands.command(name='sam')
 		async def _sam(
 						self,
@@ -785,45 +744,28 @@ class Commands(commands.Cog):
 								await ctx.voice_state.songs.put(song)
 								await ctx.send('Enqueued {}'.format(str(source)))
 
-		@commands.command(name='loser')
-		async def _loser(
-						self,
-						ctx: commands.Context,
-						*,
-						search: str = 'https://www.youtube.com/watch?v=x4fKpn7NRdM'):
-				"""When flaming isn't enough"""
-				if not ctx.voice_state.voice:
-						await ctx.invoke(self._join)
-
-				async with ctx.typing():
-						try:
-								source = await YTDLSource.create_source(ctx,
-																												search,
-																												loop=self.bot.loop)
-						except YTDLError as e:
-								await ctx.send(
-										'An error occurred while processing this request: {}'.
-										format(str(e)))
-						else:
-								song = Song(source)
-
-								await ctx.voice_state.songs.put(song)
-								await ctx.send("Get rolled you fucking loser.")
-
 		@commands.command(name='request')
-		async def __request(self, ctx, *, arg):
+		async def _request(self, ctx, *, arg):
 				"""Request a feature"""
 				auth = ctx.author
 				with open('Logs/requests.txt', 'a') as f:
 						f.write(f"{auth}: {arg}\n")
 				await ctx.send("Your request has been documented.")
 
+		@_join.before_invoke
+		@_play.before_invoke
+		async def ensure_voice_state(self, ctx: commands.Context):
+				if not ctx.author.voice or not ctx.author.voice.channel:
+						raise commands.CommandError(
+								'You are not connected to any voice channel.')
 
-#End of random custom Commands --------------------------------------
+				if ctx.voice_client:
+						if ctx.voice_client.channel != ctx.author.voice.channel:
+								raise commands.CommandError(
+										'Bot is already in a voice channel.')
 
 bot = commands.Bot(command_prefix='.', intents=discord.Intents.all())
 bot.add_cog(Commands(bot))
-
 
 @bot.event
 async def on_ready():
@@ -832,7 +774,5 @@ async def on_ready():
 																	type=discord.ActivityType.playing,
 																	name="DJ Hero"))
 		print('Logged in as:\n{0.user.name}\n{0.user.id}'.format(bot))
-
-
-keep_alive()
+	
 bot.run(os.getenv('TOKEN'))
